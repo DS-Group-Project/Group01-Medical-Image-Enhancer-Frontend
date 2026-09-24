@@ -2,17 +2,15 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Activity, LayoutDashboard, Upload, Clock, User, Settings, LogOut, Menu, X } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext'; // assuming context exists
+import { useAuth } from '../../context/AuthContext';
 
 const Navbar = () => {
-  // Use mock auth if useAuth throws or returns undefined for the sake of functionality
-  let auth;
-  try {
-    auth = useAuth();
-  } catch {
-    auth = { user: { name: 'Dr. Smith' }, logout: () => console.log('logout') };
-  }
-  const { user, logout } = auth || { user: { name: 'Dr. Smith' }, logout: () => console.log('logout') };
+  // No fallback: if this ever renders outside AuthProvider, that's a real
+  // bug that should surface loudly. The previous fallback silently swapped
+  // in a fake user and a logout button that only did `console.log('logout')`
+  // — meaning if that path were ever hit, a user clicking "Logout" would see
+  // the UI behave as if they logged out while their session stayed live.
+  const { user, logout } = useAuth();
   
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);

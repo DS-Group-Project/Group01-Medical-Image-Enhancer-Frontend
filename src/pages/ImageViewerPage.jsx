@@ -125,9 +125,10 @@ const ImageViewerPage = () => {
     );
   }
 
-  // Use placehold.co for mock images if real URLs aren't available
-  const originalImageUrl = job.originalImageUrl || `https://placehold.co/800x600/0f172a/0d9488?text=Original+X-Ray`;
-  const enhancedImageUrl = job.enhancedImageUrl || `https://placehold.co/800x600/0d9488/ffffff?text=Enhanced+X-Ray`;
+  // Use the correct property names from the data model (originalUrl / enhancedUrl).
+  // No external CDN fallback — if the URL is missing, show a local placeholder.
+  const originalImageUrl = job.originalUrl || '';
+  const enhancedImageUrl = job.enhancedUrl || '';
 
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-50" ref={containerRef}>
@@ -171,9 +172,9 @@ const ImageViewerPage = () => {
                   Download
                 </button>
                 <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-                  <a href={enhancedImageUrl} download className="block px-4 py-2 hover:bg-slate-50 text-sm text-slate-700 border-b border-slate-100">Download Enhanced</a>
-                  <a href={originalImageUrl} download className="block px-4 py-2 hover:bg-slate-50 text-sm text-slate-700 border-b border-slate-100">Download Original</a>
-                  <button onClick={() => toast.success('ZIP download started')} className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm text-slate-700">Download Both (ZIP)</button>
+                  <button onClick={() => uploadService.downloadImage(jobId, 'enhanced').then(() => toast.success('Download started')).catch(() => toast.error('Download failed'))} className="block w-full text-left px-4 py-2 hover:bg-slate-50 text-sm text-slate-700 border-b border-slate-100">Download Enhanced</button>
+                  <button onClick={() => uploadService.downloadImage(jobId, 'original').then(() => toast.success('Download started')).catch(() => toast.error('Download failed'))} className="block w-full text-left px-4 py-2 hover:bg-slate-50 text-sm text-slate-700 border-b border-slate-100">Download Original</button>
+                  <button onClick={() => uploadService.downloadImage(jobId, 'both').then(() => toast.success('ZIP download started')).catch(() => toast.error('Download failed'))} className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm text-slate-700">Download Both (ZIP)</button>
                 </div>
               </div>
               <button onClick={() => navigate('/upload')} className="flex items-center gap-2 px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white rounded-lg font-medium transition-colors">

@@ -12,87 +12,37 @@ import {
   Image as ImageIcon
 } from 'lucide-react';
 
-// Custom hook for polling
-function usePolling(callback, interval = 3000, isPolling = true) {
-  const savedCallback = useRef();
+import { uploadService } from '../services/uploadService';
+import { mockUploadService } from '../services/mockData';
+import { usePolling } from '../hooks/usePolling';
+import StatusBadge from '../components/ui/StatusBadge';
+import { safeLog } from '../utils/safeLog';
 
-  useEffect(() => {
-    savedCallback.current = callback;
-  }, [callback]);
-
-  useEffect(() => {
-    if (!isPolling) return;
-    
-    function tick() {
-      savedCallback.current();
-    }
-    
-    const id = setInterval(tick, interval);
-    return () => clearInterval(id);
-  }, [interval, isPolling]);
-}
-
-// Mock API Service
-const mockApiService = {
-  getJobStatus: async (jobId) => {
-    // Simulate a progression through states based on time or random chance
-    // For demo, we just cycle states sequentially when polled
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          jobId,
-          filename: `scan_${jobId.substring(0, 6)}.dcm`,
-          timestamp: new Date().toISOString(),
-          // Status flow: 'uploaded' -> 'queued' -> 'processing' -> 'completed'
-        });
-      }, 500);
-    });
-  }
-};
+const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
+const activeService = USE_MOCK ? mockUploadService : uploadService;
 
 const STEPS = [
-  { id: 'uploaded', label: 'Uploaded', icon: CheckCircle, description: 'File received safely' },
-  { id: 'stored', label: 'Stored in Cloud', icon: Cloud, description: 'Securely saved' },
+  { id: 'pending', label: 'Uploaded', icon: CheckCircle, description: 'File received safely' },
   { id: 'queued', label: 'Queued for Processing', icon: Clock, description: 'Waiting for available GPU' },
   { id: 'processing', label: 'AI Enhancement', icon: Cpu, description: 'Applying enhancement algorithms' },
   { id: 'completed', label: 'Complete', icon: CheckCircle2, description: 'Ready for review' }
 ];
 
-const StatusBadge = ({ status }) => {
-  const styles = {
-    failed: 'bg-red-100 text-red-700 border-red-200',
-    completed: 'bg-green-100 text-green-700 border-green-200',
-    processing: 'bg-teal-100 text-teal-700 border-teal-200',
-    queued: 'bg-indigo-100 text-indigo-700 border-indigo-200',
-    default: 'bg-slate-100 text-slate-700 border-slate-200'
-  };
-
-  const currentStyle = styles[status] || styles.default;
-
-  return (
-    <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${currentStyle} capitalize inline-flex items-center gap-1.5`}>
-      {status === 'processing' && <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />}
-      {status}
-    </span>
-  );
-};
-
 export default function ProcessingPage() {
   const { jobId } = useParams();
   const navigate = useNavigate();
   const [jobData, setJobData] = useState(null);
-  const [currentStatus, setCurrentStatus] = useState('uploaded'); // initial mock state
+  const [currentStatus, setCurrentStatus] = useState('pending');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   // Determine active step index
   const getStepIndex = (status) => {
     switch (status) {
-      case 'uploaded': return 0;
-      case 'stored': return 1;
-      case 'queued': return 2;
-      case 'processing': return 3;
-      case 'completed': return 4;
+      case 'pending': return 0;
+      case 'queued': return 1;
+      case 'processing': return 2;
+      case 'completed': return 3;
       default: return 0;
     }
   };
@@ -102,20 +52,18 @@ export default function ProcessingPage() {
   // Poll logic
   const fetchStatus = async () => {
     try {
-      const data = await mockApiService.getJobStatus(jobId);
+      const data = await activeService.getJobStatus(jobId);
       if (!jobData) setJobData(data);
       
-      // Mock state progression for demonstration since backend isn't real
-      setCurrentStatus(prev => {
-        if (prev === 'uploaded') return 'stored';
-        if (prev === 'stored') return 'queued';
-        if (prev === 'queued') return 'processing';
-        if (prev === 'processing') return 'completed';
-        return prev;
-      });
+      setCurrentStatus(data.status);
+      
+      if (data.status === 'completed') {
+        navigate(`/viewer/${jobId}`);
+      }
       
       setError(null);
     } catch (err) {
+      safeLog.error('Failed to fetch status', err);
       setError('Failed to fetch status');
     } finally {
       setLoading(false);
@@ -159,7 +107,7 @@ export default function ProcessingPage() {
           <p className="text-slate-600 mb-6">{error || 'An error occurred during AI enhancement.'}</p>
           <div className="space-y-3">
             <button
-              onClick={() => { setError(null); setCurrentStatus('uploaded'); fetchStatus(); }}
+              onClick={() => { setError(null); setCurrentStatus('pending'); fetchStatus(); }}
               className="w-full py-3 bg-slate-900 text-white font-medium rounded-xl hover:bg-slate-800 transition-colors"
             >
               Retry Job

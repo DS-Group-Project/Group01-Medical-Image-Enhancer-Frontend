@@ -7,8 +7,10 @@ import {
   Inbox
 } from 'lucide-react';
 import { uploadService } from '../services/uploadService';
+import { sanitizeSearchQuery } from '../utils/inputSanitizer';
 import StatusBadge from '../components/ui/StatusBadge';
 import toast from 'react-hot-toast';
+import { safeLog } from '../utils/safeLog';
 
 const HistoryPage = () => {
   const navigate = useNavigate();
@@ -28,11 +30,13 @@ const HistoryPage = () => {
     const fetchJobs = async () => {
       try {
         setLoading(true);
-        const data = await uploadService.getJobs();
-        // Sort by date descending
-        data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        setJobs(data);
+        const response = await uploadService.getJobs();
+        // Extract jobs array to prevent crash on non-array responses
+        const jobList = Array.isArray(response) ? response : (response.jobs || []);
+        jobList.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        setJobs(jobList);
       } catch (error) {
+        safeLog.error('Failed to load history:', error?.message || error);
         toast.error('Failed to load history');
       } finally {
         setLoading(false);
@@ -55,10 +59,16 @@ const HistoryPage = () => {
     currentPage * itemsPerPage
   );
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this record?')) {
-      setJobs(jobs.filter(j => j.id !== id));
-      toast.success('Record deleted successfully');
+      try {
+        await uploadService.deleteJob(id);
+        setJobs(jobs.filter(j => j.id !== id));
+        toast.success('Record deleted successfully');
+      } catch (error) {
+        safeLog.error('Failed to delete job:', error?.message || error);
+        toast.error('Failed to delete record. Please try again.');
+      }
     }
   };
 
@@ -99,7 +109,7 @@ const HistoryPage = () => {
               placeholder="Search files..." 
               value={searchTerm}
               onChange={(e) => {
-                setSearchTerm(e.target.value);
+                setSearchTerm(sanitizeSearchQuery(e.target.value));
                 setCurrentPage(1);
               }}
               className="pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 w-full sm:w-64 transition-all bg-white"

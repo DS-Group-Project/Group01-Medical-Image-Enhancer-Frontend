@@ -12,8 +12,17 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockedUntil, setLockedUntil] = useState(null);
   const navigate = useNavigate();
   const { login } = useAuth();
+
+  // Soft client-side throttle after repeated failures. This is UX only — it
+  // slows down a casual retry loop and makes brute-forcing feel unproductive,
+  // but it is trivially bypassed by anyone hitting the API directly, so the
+  // backend must independently rate-limit /auth/login (e.g. by IP + email,
+  // with exponential backoff or an account lockout after N attempts).
+  const isLocked = lockedUntil !== null && Date.now() < lockedUntil;
 
   const validate = () => {
     const newErrors = {};
@@ -31,15 +40,30 @@ export default function LoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isLocked) {
+      const waitSec = Math.ceil((lockedUntil - Date.now()) / 1000);
+      toast.error(`Too many attempts. Try again in ${waitSec}s.`);
+      return;
+    }
     if (!validate()) return;
-    
+
     setIsLoading(true);
     try {
-      await login(email, password);
+      await login(email.trim().toLowerCase(), password);
+      setFailedAttempts(0);
       toast.success('Successfully logged in!');
       navigate('/');
     } catch (error) {
-      toast.error(error.message || 'Failed to login');
+      const nextAttempts = failedAttempts + 1;
+      setFailedAttempts(nextAttempts);
+      if (nextAttempts >= 5) {
+        setLockedUntil(Date.now() + 30_000);
+        setFailedAttempts(0);
+        toast.error('Too many failed attempts. Please wait 30 seconds.');
+      } else {
+        // Intentionally generic — don't reveal whether the email exists.
+        toast.error('Invalid email or password.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -92,6 +116,7 @@ export default function LoginPage() {
                 <input
                   id="email"
                   type="email"
+                  autoComplete="email"
                   className={`block w-full pl-10 pr-3 py-3 border ${errors.email ? 'border-red-300' : 'border-slate-200'} rounded-xl text-slate-900 bg-slate-50 hover:bg-slate-100/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-colors`}
                   placeholder="Email address"
                   value={email}
@@ -112,6 +137,7 @@ export default function LoginPage() {
                 <input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
                   className={`block w-full pl-10 pr-10 py-3 border ${errors.password ? 'border-red-300' : 'border-slate-200'} rounded-xl text-slate-900 bg-slate-50 hover:bg-slate-100/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-colors`}
                   placeholder="Password"
                   value={password}
@@ -150,7 +176,7 @@ export default function LoginPage() {
               <motion.div variants={itemVariants}>
                 <button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={isLoading || isLocked}
                   className="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
                 >
                   {isLoading ? (

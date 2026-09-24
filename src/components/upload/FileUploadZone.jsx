@@ -1,7 +1,9 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { motion } from 'framer-motion';
 import { UploadCloud, XCircle } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { validateFileSignatures } from '../../utils/fileValidation';
 
 /**
  * FileUploadZone component for drag and drop file uploads
@@ -24,9 +26,25 @@ const FileUploadZone = ({
   maxSize = 52428800, // 50MB
   disabled = false 
 }) => {
-  const onDrop = useCallback((acceptedFiles, rejectedFiles) => {
-    if (acceptedFiles?.length > 0 && onFilesSelected) {
-      onFilesSelected(acceptedFiles);
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  const onDrop = useCallback(async (acceptedFiles, rejectedFiles) => {
+    if (!acceptedFiles?.length) return;
+
+    // The dropzone `accept` prop only checks the file extension / reported
+    // MIME type, both of which are just metadata a file can be renamed to
+    // fake. Re-check the actual file bytes before handing files off, so an
+    // obviously mismatched file (e.g. a script renamed to .png) gets caught
+    // client-side too. The backend still does its own authoritative check.
+    setIsVerifying(true);
+    try {
+      const { valid, invalid } = await validateFileSignatures(acceptedFiles);
+      invalid.forEach(({ reason }) => toast.error(reason));
+      if (valid.length > 0 && onFilesSelected) {
+        onFilesSelected(valid);
+      }
+    } finally {
+      setIsVerifying(false);
     }
   }, [onFilesSelected]);
 
@@ -41,14 +59,14 @@ const FileUploadZone = ({
     maxFiles,
     accept: acceptedTypes,
     maxSize,
-    disabled
+    disabled: disabled || isVerifying
   });
 
   // Determine styles and content based on state
   let containerClasses = "relative w-full h-64 border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-6 text-center transition-all duration-300 ";
   let iconColor = "text-slate-400";
   
-  if (disabled) {
+  if (disabled || isVerifying) {
     containerClasses += "border-slate-300 bg-slate-50 opacity-50 cursor-not-allowed";
   } else if (isDragReject) {
     containerClasses += "border-red-400 bg-red-50";

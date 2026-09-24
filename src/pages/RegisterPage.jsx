@@ -49,6 +49,8 @@ export default function RegisterPage() {
       newErrors.password = 'Password is required';
     } else if (formData.password.length < 8) {
       newErrors.password = 'Password must be at least 8 characters';
+    } else if (passwordStrength < 2) {
+      newErrors.password = 'Password is too weak — mix in numbers, symbols, or uppercase letters';
     }
     if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match';
@@ -66,7 +68,11 @@ export default function RegisterPage() {
     
     setIsLoading(true);
     try {
-      await register(formData);
+      await register({
+        ...formData,
+        name: formData.name.trim(),
+        email: formData.email.trim().toLowerCase(),
+      });
       toast.success('Account created successfully!');
       navigate('/');
     } catch (error) {
@@ -129,6 +135,7 @@ export default function RegisterPage() {
                 <input
                   name="name"
                   type="text"
+                  autoComplete="name"
                   className={`block w-full pl-10 pr-3 py-3 border ${errors.name ? 'border-red-300' : 'border-slate-200'} rounded-xl text-slate-900 bg-slate-50 hover:bg-slate-100/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-colors`}
                   placeholder="Full Name"
                   value={formData.name}
@@ -144,6 +151,7 @@ export default function RegisterPage() {
                 <input
                   name="email"
                   type="email"
+                  autoComplete="email"
                   className={`block w-full pl-10 pr-3 py-3 border ${errors.email ? 'border-red-300' : 'border-slate-200'} rounded-xl text-slate-900 bg-slate-50 hover:bg-slate-100/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-colors`}
                   placeholder="Email address"
                   value={formData.email}
@@ -160,6 +168,7 @@ export default function RegisterPage() {
                   <input
                     name="password"
                     type={showPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
                     className={`block w-full pl-10 pr-10 py-3 border ${errors.password ? 'border-red-300' : 'border-slate-200'} rounded-xl text-slate-900 bg-slate-50 hover:bg-slate-100/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-colors`}
                     placeholder="Password"
                     value={formData.password}
@@ -194,6 +203,7 @@ export default function RegisterPage() {
                 <input
                   name="confirmPassword"
                   type={showPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
                   className={`block w-full pl-10 pr-3 py-3 border ${errors.confirmPassword ? 'border-red-300' : 'border-slate-200'} rounded-xl text-slate-900 bg-slate-50 hover:bg-slate-100/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-colors`}
                   placeholder="Confirm Password"
                   value={formData.confirmPassword}

@@ -32,7 +32,7 @@ const Button = ({
   
   const variants = {
     primary: "bg-gradient-to-r from-teal-500 to-teal-600 text-white hover:from-teal-600 hover:to-teal-700 shadow-lg shadow-teal-500/25 focus:ring-teal-500 border border-transparent",
-    secondary: "border-2 border-teal-500 text-teal-600 hover:bg-teal-50 focus:ring-teal-500 bg-transparent",
+    secondary: "border-2 border-red-500 text-red-600 hover:bg-teal-50 focus:ring-teal-500 bg-transparent",
     ghost: "text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus:ring-slate-500 bg-transparent",
     danger: "bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 shadow-lg shadow-red-500/25 focus:ring-red-500 border border-transparent",
   };

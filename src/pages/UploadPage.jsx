@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useDropzone } from 'react-dropzone';
 import { toast } from 'react-hot-toast';
 import { 
   UploadCloud, 
@@ -14,139 +13,16 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-// Mock Upload Service for demonstration
-const mockUploadService = {
-  uploadImages: async (files, onProgress) => {
-    return new Promise((resolve, reject) => {
-      let progress = 0;
-      const interval = setInterval(() => {
-        progress += Math.random() * 15;
-        if (progress > 100) progress = 100;
-        
-        onProgress(Math.round(progress));
-        
-        if (progress === 100) {
-          clearInterval(interval);
-          // Return mock job IDs
-          resolve(files.map((_, index) => `job-${Date.now()}-${index}`));
-        }
-      }, 500);
-    });
-  }
-};
+import FileUploadZone from '../components/upload/FileUploadZone';
+import FilePreviewCard from '../components/upload/FilePreviewCard';
+import { formatFileSize } from '../utils/helpers';
+import { sanitizeFilename } from '../utils/fileValidation';
+import { uploadService } from '../services/uploadService';
+import { mockUploadService } from '../services/mockData';
+import { safeLog } from '../utils/safeLog';
 
-const formatFileSize = (bytes) => {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-};
-
-const FileUploadZone = ({ onDrop, isUploading }) => {
-  const { getRootProps, getInputProps, isDragActive, isDragReject } = useDropzone({
-    onDrop,
-    accept: {
-      'image/jpeg': ['.jpeg', '.jpg'],
-      'image/png': ['.png'],
-      'image/dicom': ['.dcm']
-    },
-    maxSize: 50 * 1024 * 1024, // 50MB
-    disabled: isUploading
-  });
-
-  return (
-    <div
-      {...getRootProps()}
-      className={`w-full p-10 border-2 border-dashed rounded-2xl transition-all duration-200 ease-in-out cursor-pointer flex flex-col items-center justify-center min-h-[300px]
-        ${isDragActive ? 'border-teal-500 bg-teal-50/50' : 'border-slate-300 bg-slate-50 hover:bg-slate-100 hover:border-slate-400'}
-        ${isDragReject ? 'border-red-500 bg-red-50' : ''}
-        ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}
-      `}
-    >
-      <input {...getInputProps()} />
-      <div className="p-4 bg-white rounded-full shadow-sm mb-4">
-        <UploadCloud className={`w-10 h-10 ${isDragActive ? 'text-teal-600' : 'text-slate-400'}`} />
-      </div>
-      <h3 className="text-lg font-semibold text-slate-700 mb-2">
-        {isDragActive ? 'Drop your images here' : 'Drag & drop your medical images'}
-      </h3>
-      <p className="text-sm text-slate-500 text-center max-w-sm mb-6">
-        Support for JPEG, PNG, and standard DICOM files up to 50MB per image.
-      </p>
-      <button 
-        type="button"
-        disabled={isUploading}
-        className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 font-medium rounded-lg shadow-sm hover:bg-slate-50 hover:text-teal-600 transition-colors disabled:opacity-50"
-      >
-        Browse Files
-      </button>
-    </div>
-  );
-};
-
-const FilePreviewCard = ({ file, onRemove, isUploading, progress }) => {
-  const [preview, setPreview] = useState(null);
-
-  useEffect(() => {
-    if (file.type.startsWith('image/')) {
-      const objectUrl = URL.createObjectURL(file);
-      setPreview(objectUrl);
-      return () => URL.revokeObjectURL(objectUrl);
-    }
-  }, [file]);
-
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      className="relative flex items-center p-4 bg-white border border-slate-200 rounded-xl shadow-sm group overflow-hidden"
-    >
-      {isUploading && (
-        <div 
-          className="absolute left-0 bottom-0 h-1 bg-gradient-to-r from-teal-500 to-indigo-500 transition-all duration-300"
-          style={{ width: `${progress}%` }}
-        />
-      )}
-      
-      <div className="w-12 h-12 shrink-0 bg-slate-100 rounded-lg overflow-hidden flex items-center justify-center mr-4">
-        {preview ? (
-          <img src={preview} alt={file.name} className="w-full h-full object-cover" />
-        ) : (
-          <FileImage className="w-6 h-6 text-slate-400" />
-        )}
-      </div>
-      
-      <div className="flex-1 min-w-0 mr-4">
-        <p className="text-sm font-medium text-slate-900 truncate">
-          {file.name}
-        </p>
-        <p className="text-xs text-slate-500">
-          {formatFileSize(file.size)}
-        </p>
-      </div>
-
-      <button
-        onClick={() => onRemove(file)}
-        disabled={isUploading}
-        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        aria-label="Remove file"
-      >
-        <Trash2 className="w-4 h-4" />
-      </button>
-
-      {isUploading && (
-        <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] flex items-center justify-center">
-          <span className="text-sm font-semibold text-teal-700 bg-white px-2 py-1 rounded-md shadow-sm">
-            {progress}%
-          </span>
-        </div>
-      )}
-    </motion.div>
-  );
-};
+const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
+const activeUploadService = USE_MOCK ? mockUploadService : uploadService;
 
 export default function UploadPage() {
   const navigate = useNavigate();
@@ -156,14 +32,16 @@ export default function UploadPage() {
   const [uploadComplete, setUploadComplete] = useState(false);
   const [jobIds, setJobIds] = useState([]);
 
-  const onDrop = useCallback((acceptedFiles, rejectedFiles) => {
-    if (rejectedFiles.length > 0) {
+  const onFilesSelected = useCallback((acceptedFiles, rejectedFiles) => {
+    if (rejectedFiles && rejectedFiles.length > 0) {
       toast.error('Some files were rejected. Please check file type and size.');
     }
     
     setFiles(prev => {
       const newFiles = [...prev];
       acceptedFiles.forEach(file => {
+        // Sanitize file name before adding
+        const safeName = sanitizeFilename(file.name);
         if (!newFiles.some(f => f.name === file.name && f.size === file.size)) {
           newFiles.push(file);
         }
@@ -187,14 +65,17 @@ export default function UploadPage() {
     setUploadProgress(0);
 
     try {
-      const ids = await mockUploadService.uploadImages(files, (progress) => {
+      const response = await activeUploadService.uploadImages(files, (progress) => {
         setUploadProgress(progress);
       });
 
-      setJobIds(ids);
+      // Extract jobs properly from response
+      setJobIds(response.jobs);
       setUploadComplete(true);
       toast.success('Images uploaded successfully!');
     } catch (error) {
+      // Secure logging for errors
+      safeLog.error('Upload failed', error);
       toast.error('Upload failed. Please try again.');
     } finally {
       setIsUploading(false);
@@ -258,7 +139,7 @@ export default function UploadPage() {
         ) : (
           <>
             {/* Upload Zone */}
-            <FileUploadZone onDrop={onDrop} isUploading={isUploading} />
+            <FileUploadZone onFilesSelected={onFilesSelected} isUploading={isUploading} />
 
             {/* Selected Files Section */}
             <AnimatePresence>
