@@ -5,8 +5,10 @@ import { UploadCloud, Loader2, Image as ImageIcon, CheckCircle, AlertCircle, Clo
 import { useAuth } from '../context/AuthContext';
 import { mockUploadService, mockStats, mockJobs } from '../services/mockData';
 import StatusBadge from '../components/ui/StatusBadge';
+import { safeLog } from '../utils/safeLog';
+import { uploadService } from '../services/uploadService';
 
-const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true' || true;
+const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -23,12 +25,12 @@ export default function DashboardPage() {
           setJobs(result.jobs);
           setStats(mockStats);
         } else {
-          // TODO: Replace with real uploadService when backend is ready
-          // const result = await uploadService.getJobs({ limit: 5 });
-          // setJobs(result.jobs);
+          // Use real uploadService
+          const result = await uploadService.getJobs({ limit: 5 });
+          setJobs(result.jobs || []);
         }
       } catch (error) {
-        console.error('Failed to fetch dashboard data:', error);
+        safeLog.error('Failed to fetch dashboard data:', error?.message || error);
       } finally {
         setLoading(false);
       }
@@ -126,7 +128,7 @@ export default function DashboardPage() {
         <div>
           <p className="text-slate-500 font-medium mb-1">{currentDate}</p>
           <h1 className="text-3xl font-bold text-slate-900 flex items-center">
-            Welcome back, {user?.name || 'Doctor'} <span className="ml-2 inline-block">👋</span>
+            Welcome back, {user?.name || 'Doctor'} 
           </h1>
         </div>
       </motion.div>

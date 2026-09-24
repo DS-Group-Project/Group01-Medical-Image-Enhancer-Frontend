@@ -82,8 +82,20 @@ export function truncateFilename(name, maxLength = 20) {
   return `${name.slice(0, maxLength - 3)}...`;
 }
 
+/**
+ * Generates a cryptographically secure random ID.
+ * Uses the Web Crypto API (available in all modern browsers) instead of
+ * Math.random(), which is NOT a CSPRNG and must never be used for IDs
+ * that could be guessed, enumerated, or used as nonces/tokens.
+ */
 export function generateId() {
-  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback for older browsers: use crypto.getRandomValues
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 export function classNames(...classes) {
